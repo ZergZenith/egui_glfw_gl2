@@ -1,0 +1,32 @@
+[package]
+name = "egui_glfw_gl2"
+version = "0.1.0"
+edition = "2021"
+authors = ["Zenith <zyg19970105@gmail.com>"]
+description = "OpenGL backend for egui using GLFW"
+license = "MIT"
+readme = "README.md"
+homepage = "https://github.com/ZergZenith/egui_glfw_gl2"
+repository = "https://github.com/ZergZenith/egui_glfw_gl2"
+categories = ["gui", "graphics"]
+keywords = ["glfw", "opengl", "egui", "gui", "gamedev"]
+include = ["**/*.rs", "Cargo.toml"]
+
+[dependencies]
+gl = "0.14"
+glfw = "0.55.0"
+egui = "0.26.2"
+winapi = "0.3.9"
+
+[dependencies.clipboard]
+package = "cli-clipboard"
+version = "0.4.0"
+optional = true
+
+[dependencies.webbrowser]
+package = "webbrowser"
+version = "0.8.13"
+optional = true
+
+[features]
+default = ["clipboard", "webbrowser"]

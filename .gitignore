@@ -12,3 +12,9 @@ Cargo.lock
 
 # MSVC Windows builds of rustc generate these, which store debugging information
 *.pdb
+
+/glfw3.dll
+/glfw3.lib
+/glfw3_mt.lib
+/glfw3dll.lib
+/.idea/
