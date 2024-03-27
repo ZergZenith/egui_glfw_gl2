@@ -1,40 +1,34 @@
-extern crate gl;
-
 use egui::{emath::Rect, epaint::{Mesh, Primitive}, Color32, TextureFilter, TextureId};
 
-use gl::types::{GLchar, GLenum, GLint, GLsizeiptr, GLuint};
-use std::ffi::{c_void, CString};
+use std::ffi::{c_uint, c_void, CString};
+use gl33::*;
+use gl33::global_loader::*;
 use crate::egui_shader::{FRAGMENT, VERTEX};
 
-fn compile_shader(src: &str, ty: GLenum) -> GLuint {
-    let shader = unsafe { gl::CreateShader(ty) };
+fn compile_shader(src: &str, ty: GLenum) -> c_uint {
+    let shader = unsafe { glCreateShader(ty) };
 
     let c_str = CString::new(src.as_bytes()).unwrap();
     unsafe {
-        gl::ShaderSource(shader, 1, &c_str.as_ptr(), core::ptr::null());
-        gl::CompileShader(shader);
+        glShaderSource(shader, 1, &c_str.as_ptr().cast(), core::ptr::null());
+        glCompileShader(shader);
     }
 
-    let mut status = gl::FALSE as GLint;
+    let mut status = 0;
     unsafe {
-        gl::GetShaderiv(shader, gl::COMPILE_STATUS, &mut status);
+        glGetShaderiv(shader, GL_COMPILE_STATUS, &mut status);
     }
 
-    if status != (gl::TRUE as GLint) {
+    if status != GL_TRUE.0 as _ {
         let mut len = 0;
         unsafe {
-            gl::GetShaderiv(shader, gl::INFO_LOG_LENGTH, &mut len);
+            glGetShaderiv(shader, GL_INFO_LOG_LENGTH, &mut len);
         }
 
         let mut buf = vec![0; len as usize];
 
         unsafe {
-            gl::GetShaderInfoLog(
-                shader,
-                len,
-                core::ptr::null_mut(),
-                buf.as_mut_ptr() as *mut GLchar,
-            );
+            glGetShaderInfoLog(shader, len, core::ptr::null_mut(), buf.as_mut_ptr().cast(), );
         }
 
         panic!(
@@ -46,34 +40,34 @@ fn compile_shader(src: &str, ty: GLenum) -> GLuint {
     shader
 }
 
-fn link_program(vs: GLuint, fs: GLuint) -> GLuint {
-    let program = unsafe { gl::CreateProgram() };
+fn link_program(vs: c_uint, fs: c_uint) -> c_uint {
+    let program = unsafe { glCreateProgram() };
 
     unsafe {
-        gl::AttachShader(program, vs);
-        gl::AttachShader(program, fs);
-        gl::LinkProgram(program);
+        glAttachShader(program, vs);
+        glAttachShader(program, fs);
+        glLinkProgram(program);
     }
 
-    let mut status = gl::FALSE as GLint;
+    let mut status = 0;
     unsafe {
-        gl::GetProgramiv(program, gl::LINK_STATUS, &mut status);
+        glGetProgramiv(program, GL_LINK_STATUS, &mut status);
     }
 
-    if status != (gl::TRUE as GLint) {
-        let mut len: GLint = 0;
+    if status != GL_TRUE.0 as _ {
+        let mut len = 0;
         unsafe {
-            gl::GetProgramiv(program, gl::INFO_LOG_LENGTH, &mut len);
+            glGetProgramiv(program, GL_INFO_LOG_LENGTH, &mut len);
         }
 
         let mut buf = vec![0; len as usize];
 
         unsafe {
-            gl::GetProgramInfoLog(
+            glGetProgramInfoLog(
                 program,
                 len,
                 core::ptr::null_mut(),
-                buf.as_mut_ptr() as *mut GLchar,
+                buf.as_mut_ptr().cast(),
             );
         }
 
@@ -93,7 +87,7 @@ pub struct UserTexture {
     pixels: Vec<u8>,
 
     /// Lazily uploaded
-    gl_texture_id: Option<GLuint>,
+    gl_texture_id: Option<c_uint>,
 
     /// For user textures there is a choice between
     /// Linear (default) and Nearest.
@@ -118,18 +112,18 @@ impl UserTexture {
         assert!(y_offset + height <= self.size.1 as _);
 
         unsafe {
-            gl::PixelStorei(gl::UNPACK_ALIGNMENT, 1);
-            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_SWIZZLE_A, gl::RED as _);
+            glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_SWIZZLE_A, GL_RED.0 as _);
 
-            gl::TexSubImage2D(
-                gl::TEXTURE_2D,
+            glTexSubImage2D(
+                GL_TEXTURE_2D,
                 0,
                 x_offset as _,
                 y_offset as _,
                 width as _,
                 height as _,
-                gl::RGBA,
-                gl::UNSIGNED_BYTE,
+                GL_RGBA,
+                GL_UNSIGNED_BYTE,
                 bytes.as_ptr() as *const _,
             );
         }
@@ -150,20 +144,20 @@ impl UserTexture {
     pub fn delete(&self) {
         if let Some(id) = &self.gl_texture_id {
             unsafe {
-                gl::DeleteTextures(1, id as *const _);
+                glDeleteTextures(1, id as *const _);
             }
         }
     }
 }
 
 pub struct Painter {
-    program: GLuint,
+    program: c_uint,
 
-    vertex_array: GLuint,
-    index_buffer: GLuint,
-    pos_buffer: GLuint,
-    tc_buffer: GLuint,
-    color_buffer: GLuint,
+    vertex_array: c_uint,
+    index_buffer: c_uint,
+    pos_buffer: c_uint,
+    tc_buffer: c_uint,
+    color_buffer: c_uint,
 
     canvas_width: u32,
     canvas_height: u32,
@@ -177,8 +171,8 @@ impl Painter {
     }
 
     pub fn new(window: &mut glfw::Window) -> Painter {
-        let vs = compile_shader(VERTEX, gl::VERTEX_SHADER);
-        let fs = compile_shader(FRAGMENT, gl::FRAGMENT_SHADER);
+        let vs = compile_shader(VERTEX, GL_VERTEX_SHADER);
+        let fs = compile_shader(FRAGMENT, GL_FRAGMENT_SHADER);
 
         let program = link_program(vs, fs);
 
@@ -188,12 +182,12 @@ impl Painter {
         let mut tc_buffer = 0;
         let mut color_buffer = 0;
         unsafe {
-            gl::GenVertexArrays(1, &mut vertex_array);
-            gl::BindVertexArray(vertex_array);
-            gl::GenBuffers(1, &mut index_buffer);
-            gl::GenBuffers(1, &mut pos_buffer);
-            gl::GenBuffers(1, &mut tc_buffer);
-            gl::GenBuffers(1, &mut color_buffer);
+            glGenVertexArrays(1, &mut vertex_array);
+            glBindVertexArray(vertex_array);
+            glGenBuffers(1, &mut index_buffer);
+            glGenBuffers(1, &mut pos_buffer);
+            glGenBuffers(1, &mut tc_buffer);
+            glGenBuffers(1, &mut color_buffer);
         }
 
         let (canvas_width, canvas_height) = window.get_size();
@@ -243,22 +237,21 @@ impl Painter {
             //Let OpenGL know we are dealing with SRGB colors so that it
             //can do the blending correctly. Not setting the framebuffer
             //leads to darkened, oversaturated colors.
-            gl::Enable(gl::FRAMEBUFFER_SRGB);
+            glEnable(GL_FRAMEBUFFER_SRGB);
 
-            gl::Enable(gl::SCISSOR_TEST);
-            gl::Enable(gl::BLEND);
-            gl::BlendFunc(gl::ONE, gl::ONE_MINUS_SRC_ALPHA); // premultiplied alpha
-            gl::UseProgram(self.program);
-            gl::ActiveTexture(gl::TEXTURE0);
+            glEnable(GL_SCISSOR_TEST);
+            glEnable(GL_BLEND);
+            glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA); // premultiplied alpha
+            glUseProgram(self.program);
+            glActiveTexture(GL_TEXTURE0);
         }
 
         let u_screen_size = CString::new("u_screen_size").unwrap();
-        let u_screen_size_ptr = u_screen_size.as_ptr();
-        let u_screen_size_loc = unsafe { gl::GetUniformLocation(self.program, u_screen_size_ptr) };
+        let u_screen_size_loc = unsafe { glGetUniformLocation(self.program, u_screen_size.as_ptr().cast()) };
         let screen_size_points = egui::vec2(self.canvas_width as f32, self.canvas_height as f32) / pixels_per_point;
 
         unsafe {
-            gl::Uniform2f(
+            glUniform2f(
                 u_screen_size_loc,
                 screen_size_points.x,
                 screen_size_points.y,
@@ -266,11 +259,10 @@ impl Painter {
         }
 
         let u_sampler = CString::new("u_sampler").unwrap();
-        let u_sampler_ptr = u_sampler.as_ptr();
-        let u_sampler_loc = unsafe { gl::GetUniformLocation(self.program, u_sampler_ptr) };
+        let u_sampler_loc = unsafe { glGetUniformLocation(self.program, u_sampler.as_ptr().cast()) };
         unsafe {
-            gl::Uniform1i(u_sampler_loc, 0);
-            gl::Viewport(0, 0, self.canvas_width as i32, self.canvas_height as i32);
+            glUniform1i(u_sampler_loc, 0);
+            glViewport(0, 0, self.canvas_width as i32, self.canvas_height as i32);
         }
 
         for egui::ClippedPrimitive {
@@ -282,7 +274,7 @@ impl Painter {
                 Primitive::Mesh(mesh) => {
                     self.paint_mesh(mesh, clip_rect, pixels_per_point);
                     unsafe {
-                        gl::Disable(gl::SCISSOR_TEST);
+                        glDisable(GL_SCISSOR_TEST);
                     }
                 }
 
@@ -293,7 +285,7 @@ impl Painter {
         }
 
         unsafe {
-            gl::Disable(gl::FRAMEBUFFER_SRGB);
+            glDisable(GL_FRAMEBUFFER_SRGB);
         }
     }
 
@@ -345,8 +337,8 @@ impl Painter {
 
         if let Some(it) = self.textures.get(&mesh.texture_id) {
             unsafe {
-                gl::BindTexture(
-                    gl::TEXTURE_2D,
+                glBindTexture(
+                    GL_TEXTURE_2D,
                     it.gl_texture_id
                         .expect("Texture should have a valid OpenGL id now"),
                 );
@@ -370,7 +362,7 @@ impl Painter {
 
             //scissor Y coordinate is from the bottom
             unsafe {
-                gl::Scissor(
+                glScissor(
                     clip_min_x,
                     self.canvas_height as i32 - clip_max_y,
                     clip_max_x - clip_min_x,
@@ -383,14 +375,14 @@ impl Painter {
             let vertices_len = mesh.vertices.len();
 
             unsafe {
-                gl::BindVertexArray(self.vertex_array);
-                gl::BindBuffer(gl::ELEMENT_ARRAY_BUFFER, self.index_buffer);
-                gl::BufferData(
-                    gl::ELEMENT_ARRAY_BUFFER,
-                    (indices_len * core::mem::size_of::<u16>()) as GLsizeiptr,
+                glBindVertexArray(self.vertex_array);
+                glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, self.index_buffer);
+                glBufferData(
+                    GL_ELEMENT_ARRAY_BUFFER,
+                    (indices_len * core::mem::size_of::<u16>()) as isize,
                     //mem::transmute(&indices.as_ptr()),
-                    indices.as_ptr() as *const gl::types::GLvoid,
-                    gl::STREAM_DRAW,
+                    indices.as_ptr().cast(),
+                    GL_STREAM_DRAW,
                 );
             }
 
@@ -411,99 +403,91 @@ impl Painter {
             }
 
             unsafe {
-                gl::BindBuffer(gl::ARRAY_BUFFER, self.pos_buffer);
-                gl::BufferData(
-                    gl::ARRAY_BUFFER,
-                    (positions.len() * core::mem::size_of::<f32>()) as GLsizeiptr,
+                glBindBuffer(GL_ARRAY_BUFFER, self.pos_buffer);
+                glBufferData(
+                    GL_ARRAY_BUFFER,
+                    (positions.len() * core::mem::size_of::<f32>()) as isize,
                     //mem::transmute(&positions.as_ptr()),
-                    positions.as_ptr() as *const gl::types::GLvoid,
-                    gl::STREAM_DRAW,
+                    positions.as_ptr().cast(),
+                    GL_STREAM_DRAW,
                 );
             }
 
             let a_pos = CString::new("a_pos").unwrap();
-            let a_pos_ptr = a_pos.as_ptr();
-            let a_pos_loc = unsafe { gl::GetAttribLocation(self.program, a_pos_ptr) };
+            let a_pos_loc = unsafe { glGetAttribLocation(self.program, a_pos.as_ptr().cast()) };
             assert!(a_pos_loc >= 0);
             let a_pos_loc = a_pos_loc as u32;
 
             let stride = 0;
             unsafe {
-                gl::VertexAttribPointer(
+                glVertexAttribPointer(
                     a_pos_loc,
                     2,
-                    gl::FLOAT,
-                    gl::FALSE,
+                    GL_FLOAT,
+                    GL_FALSE.0 as _,
                     stride,
                     core::ptr::null(),
                 );
-                gl::EnableVertexAttribArray(a_pos_loc);
+                glEnableVertexAttribArray(a_pos_loc);
 
-                gl::BindBuffer(gl::ARRAY_BUFFER, self.tc_buffer);
-                gl::BufferData(
-                    gl::ARRAY_BUFFER,
-                    (tex_coords.len() * core::mem::size_of::<f32>()) as GLsizeiptr,
+                glBindBuffer(GL_ARRAY_BUFFER, self.tc_buffer);
+                glBufferData(
+                    GL_ARRAY_BUFFER,
+                    (tex_coords.len() * core::mem::size_of::<f32>()) as isize,
                     //mem::transmute(&tex_coords.as_ptr()),
-                    tex_coords.as_ptr() as *const gl::types::GLvoid,
-                    gl::STREAM_DRAW,
+                    tex_coords.as_ptr().cast(),
+                    GL_STREAM_DRAW,
                 );
             }
 
             let a_tc = CString::new("a_tc").unwrap();
-            let a_tc_ptr = a_tc.as_ptr();
-            let a_tc_loc = unsafe { gl::GetAttribLocation(self.program, a_tc_ptr) };
+            let a_tc_loc = unsafe { glGetAttribLocation(self.program, a_tc.as_ptr().cast()) };
             assert!(a_tc_loc >= 0);
             let a_tc_loc = a_tc_loc as u32;
 
             let stride = 0;
             unsafe {
-                gl::VertexAttribPointer(
+                glVertexAttribPointer(
                     a_tc_loc,
                     2,
-                    gl::FLOAT,
-                    gl::FALSE,
+                    GL_FLOAT,
+                    GL_FALSE.0 as _,
                     stride,
                     core::ptr::null(),
                 );
-                gl::EnableVertexAttribArray(a_tc_loc);
+                glEnableVertexAttribArray(a_tc_loc);
 
-                gl::BindBuffer(gl::ARRAY_BUFFER, self.color_buffer);
-                gl::BufferData(
-                    gl::ARRAY_BUFFER,
-                    (colors.len() * core::mem::size_of::<u8>()) as GLsizeiptr,
+                glBindBuffer(GL_ARRAY_BUFFER, self.color_buffer);
+                glBufferData(
+                    GL_ARRAY_BUFFER,
+                    (colors.len() * core::mem::size_of::<u8>()) as isize,
                     //mem::transmute(&colors.as_ptr()),
-                    colors.as_ptr() as *const gl::types::GLvoid,
-                    gl::STREAM_DRAW,
+                    colors.as_ptr().cast(),
+                    GL_STREAM_DRAW,
                 );
             }
 
             let a_srgba = CString::new("a_srgba").unwrap();
-            let a_srgba_ptr = a_srgba.as_ptr();
-            let a_srgba_loc = unsafe { gl::GetAttribLocation(self.program, a_srgba_ptr) };
+            let a_srgba_loc = unsafe { glGetAttribLocation(self.program, a_srgba.as_ptr().cast()) };
             assert!(a_srgba_loc >= 0);
             let a_srgba_loc = a_srgba_loc as u32;
 
             let stride = 0;
             unsafe {
-                gl::VertexAttribPointer(
+                glVertexAttribPointer(
                     a_srgba_loc,
                     4,
-                    gl::UNSIGNED_BYTE,
-                    gl::FALSE,
+                    GL_UNSIGNED_BYTE,
+                    GL_FALSE.0 as _,
                     stride,
                     core::ptr::null(),
                 );
-                gl::EnableVertexAttribArray(a_srgba_loc);
+                glEnableVertexAttribArray(a_srgba_loc);
 
-                gl::DrawElements(
-                    gl::TRIANGLES,
-                    indices_len as i32,
-                    gl::UNSIGNED_SHORT,
-                    core::ptr::null(),
-                );
-                gl::DisableVertexAttribArray(a_pos_loc);
-                gl::DisableVertexAttribArray(a_tc_loc);
-                gl::DisableVertexAttribArray(a_srgba_loc);
+                glDrawElements(GL_TRIANGLES, indices_len as i32, GL_UNSIGNED_SHORT, core::ptr::null(), );
+                glDisableVertexAttribArray(a_pos_loc);
+                glDisableVertexAttribArray(a_tc_loc);
+                glDisableVertexAttribArray(a_srgba_loc);
             }
         }
     }
@@ -604,51 +588,27 @@ impl Painter {
 
                 match user_texture.gl_texture_id {
                     Some(texture) => unsafe {
-                        gl::BindTexture(gl::TEXTURE_2D, texture);
+                        glBindTexture(GL_TEXTURE_2D, texture);
                     },
 
                     None => {
                         let mut gl_texture = 0;
                         unsafe {
-                            gl::GenTextures(1, &mut gl_texture);
-                            gl::BindTexture(gl::TEXTURE_2D, gl_texture);
-                            gl::TexParameteri(
-                                gl::TEXTURE_2D,
-                                gl::TEXTURE_WRAP_S,
-                                gl::CLAMP_TO_EDGE as i32,
-                            );
-                            gl::TexParameteri(
-                                gl::TEXTURE_2D,
-                                gl::TEXTURE_WRAP_T,
-                                gl::CLAMP_TO_EDGE as i32,
-                            );
+                            glGenTextures(1, &mut gl_texture);
+                            glBindTexture(GL_TEXTURE_2D, gl_texture);
+                            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE.0 as _, );
+                            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE.0 as _, );
                         }
 
                         match user_texture.filtering {
                             TextureFilter::Nearest => unsafe {
-                                gl::TexParameteri(
-                                    gl::TEXTURE_2D,
-                                    gl::TEXTURE_MIN_FILTER,
-                                    gl::LINEAR as i32,
-                                );
-                                gl::TexParameteri(
-                                    gl::TEXTURE_2D,
-                                    gl::TEXTURE_MAG_FILTER,
-                                    gl::LINEAR as i32,
-                                );
+                                glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST.0 as _, );
+                                glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST.0 as _, );
                             },
 
                             TextureFilter::Linear => unsafe {
-                                gl::TexParameteri(
-                                    gl::TEXTURE_2D,
-                                    gl::TEXTURE_MIN_FILTER,
-                                    gl::NEAREST as i32,
-                                );
-                                gl::TexParameteri(
-                                    gl::TEXTURE_2D,
-                                    gl::TEXTURE_MAG_FILTER,
-                                    gl::NEAREST as i32,
-                                );
+                                glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR.0 as _, );
+                                glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR.0 as _, );
                             },
                         }
                         user_texture.gl_texture_id = Some(gl_texture);
@@ -656,21 +616,16 @@ impl Painter {
                 }
 
                 if !pixels.is_empty() {
-                    let level = 0;
-                    let internal_format = gl::RGBA;
-                    let border = 0;
-                    let src_format = gl::RGBA;
-                    let src_type = gl::UNSIGNED_BYTE;
                     unsafe {
-                        gl::TexImage2D(
-                            gl::TEXTURE_2D,
-                            level,
-                            internal_format as i32,
+                        glTexImage2D(
+                            GL_TEXTURE_2D,
+                            0,
+                            GL_RGBA.0 as _,
                             user_texture.size.0 as i32,
                             user_texture.size.1 as i32,
-                            border,
-                            src_format,
-                            src_type,
+                            0,
+                            GL_RGBA,
+                            GL_UNSIGNED_BYTE,
                             pixels.as_ptr() as *const c_void,
                         );
                     }

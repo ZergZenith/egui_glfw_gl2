@@ -1,6 +1,6 @@
 [package]
 name = "egui_glfw_gl2"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 authors = ["Zenith <zyg19970105@gmail.com>"]
 description = "OpenGL backend for egui using GLFW"
@@ -13,9 +13,9 @@ keywords = ["glfw", "opengl", "egui", "gui", "gamedev"]
 include = ["**/*.rs", "Cargo.toml"]
 
 [dependencies]
-gl = "0.14"
+gl33 = "0.2.1"
 glfw = "0.55.0"
-egui = "0.26.2"
+egui = "0.27.0"
 winapi = "0.3.9"
 
 [dependencies.clipboard]

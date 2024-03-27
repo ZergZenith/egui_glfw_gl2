@@ -1,6 +1,9 @@
+use std::sync::Mutex;
 use std::time::Instant;
 use egui::{vec2, Color32, Image, Context, TextureId};
-use glfw::Context as OtherContext;
+use gl33::*;
+use gl33::global_loader::*;
+use glfw::{Context as OtherContext, PWindow};
 use egui_glfw_gl2::GLBackEnd;
 
 const SCREEN_WIDTH: u32 = 1600;
@@ -9,6 +12,17 @@ const PIC_WIDTH: i32 = 320;
 const PIC_HEIGHT: i32 = 192;
 
 mod triangle;
+
+fn init_gl(window: &mut PWindow) {
+    let window = Mutex::new(window);
+    unsafe {
+        load_global_gl(&|ptr| {
+            let c_str = std::ffi::CStr::from_ptr(ptr as *const i8);
+            let r_str = c_str.to_str().unwrap();
+            window.lock().unwrap().get_proc_address(r_str) as _
+        });
+    }
+}
 
 fn main() {
     let mut glfw = glfw::init(glfw::fail_on_errors).unwrap();
@@ -33,8 +47,7 @@ fn main() {
     window.make_current();
     glfw.set_swap_interval(glfw::SwapInterval::Sync(1));
 
-    gl::load_with(|symbol| window.get_proc_address(symbol) as *const _);
-
+    init_gl(&mut window);
 
     let mut egui_backend = GLBackEnd::new(&mut window);
 
@@ -62,8 +75,8 @@ fn main() {
         egui_backend.egui_ctx.begin_frame(egui_backend.user_input.raw_input.take());
 
         unsafe {
-            gl::ClearColor(0.455, 0.302, 0.663, 1.0);
-            gl::Clear(gl::COLOR_BUFFER_BIT);
+            glClearColor(0.455, 0.302, 0.663, 1.0);
+            glClear(GL_COLOR_BUFFER_BIT);
         }
 
         triangle.draw();

@@ -22,10 +22,17 @@ cargo run --example demo
 ```
 
 ## Known issues
-1. The cursor icon flickers at the edge of the window.
-2. Due to the addition of the cursor's icon part, project is currently not compatible with Linux and MacOS.
+- Due to the addition of the cursor's icon part, project is currently not compatible with Linux and MacOS.
 
 ## Credits
 egui_glfw_gl2 is based off [egui_glfw_gl](https://github.com/cohaereo/egui_glfw_gl), created by [cohae](https://github.com/cohaereo)
 
 The project's code heavily references the implementations of [winit](https://github.com/rust-windowing/winit) and [egui_vulkano](https://github.com/derivator/egui_vulkano). Many thanks to them.
+
+## Update
+### 0.1.0 (2024-3-24)
+- Updated the egui dependency to 0.26.2.
+- Refactored some parts of the code.
+### 0.1.1 (2024-3-27)
+- Breaking change: Switched OpenGL binding crate from [gl](https://crates.io/crates/gl) to [gl33](https://crates.io/crates/gl33) (as the function and variable names in gl33 are consistent with C++).
+- Update: Updated the egui dependency to the latest version (0.27.0).
