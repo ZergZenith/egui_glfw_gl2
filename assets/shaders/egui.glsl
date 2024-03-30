@@ -1,14 +1,14 @@
-pub const VERTEX: &str = r#"
-#version 100
+#type vertex
+#version 330 core
 
-uniform vec2 u_screen_size;
+uniform vec2 uScreenSize;
 
-attribute vec2 a_pos;
-attribute vec2 a_tc;
-attribute vec4 a_srgba;
+layout (location=0) in vec2 aPos;
+layout (location=1) in vec2 aTexCoords;
+layout (location=2) in vec4 aColor;
 
-varying vec2 v_tc;
-varying vec4 v_rgba;
+out vec2 fTexCoords;
+out vec4 fColor;
 
 // 0-1 linear  from  0-255 sRGB
 vec3 linear_from_srgb(vec3 srgb) {
@@ -16,8 +16,6 @@ vec3 linear_from_srgb(vec3 srgb) {
     vec3 lower = srgb / vec3(3294.6);
     vec3 higher = pow((srgb + vec3(14.025)) / vec3(269.025), vec3(2.4));
     return mix(higher, lower, vec3(cutoff));
-
-
 }
 
 // 0-1 linear  from  0-255 sRGBA
@@ -38,27 +36,37 @@ vec4 srgba_from_linear(vec4 rgba) {
     return vec4(srgb_from_linear(rgba.rgb), 255.0 * rgba.a);
 }
 
+vec4 srgbToLinear(vec4 srgba) {
+    vec3 linearRGB;
+    for(int i = 0; i < 3; ++i) {
+        if (srgba[i] <= 0.04045) {
+            linearRGB[i] = srgba[i] / 12.92;
+        } else {
+            linearRGB[i] = pow((srgba[i] + 0.055) / 1.055, 2.4);
+        }
+    }
+    return vec4(linearRGB, srgba.a); // RGB转换，Alpha保持不变
+}
+
 void main() {
     gl_Position = vec4(
-        2.0 * a_pos.x / u_screen_size.x - 1.0,
-        1.0 - 2.0 * a_pos.y / u_screen_size.y,
-        0.0,
-    1.0);
-    v_tc = a_tc;
-    v_rgba = linear_from_srgba(a_srgba);
-    v_rgba.a = pow(v_rgba.a, 1.6);
+    2.0 * aPos.x / uScreenSize.x - 1.0,
+    1.0 - 2.0 * aPos.y / uScreenSize.y,
+    0.0,
+    1.0
+    );
+    fTexCoords = aTexCoords;
+    fColor = linear_from_srgba(aColor);
+    fColor.a = pow(fColor.a, 1.6);
 }
-"#;
 
-pub const FRAGMENT: &str = r#"
-#version 100
+#type fragment
+#version 330 core
 
-uniform sampler2D u_sampler;
+uniform sampler2D uSampler;
 
-precision highp float;
-
-varying vec2 v_tc;
-varying vec4 v_rgba;
+in vec2 fTexCoords;
+in vec4 fColor;
 
 // 0-1 linear  from  0-255 sRGB
 vec3 linear_from_srgb(vec3 srgb) {
@@ -88,7 +96,7 @@ vec4 srgba_from_linear(vec4 rgba) {
 
 void main() {
     // We must decode the colors, since WebGL1 doesn't come with sRGBA textures:
-    vec4 texture_rgba = linear_from_srgba(texture2D(u_sampler, v_tc) * 255.0);
+    vec4 texture_rgba = linear_from_srgba(texture2D(uSampler, fTexCoords) * 255.0);
     // WebGL1 doesn't support linear blending in the framebuffer,
     // so we do a hack here where we change the premultiplied alpha
     // to do the multiplication in gamma space instead:
@@ -105,6 +113,5 @@ void main() {
         texture_rgba.rgb *= texture_rgba.a;
     }
     /// Multiply vertex color with texture color (in linear space).
-    gl_FragColor = v_rgba * texture_rgba;
+    gl_FragColor = fColor * texture_rgba;
 }
-"#;

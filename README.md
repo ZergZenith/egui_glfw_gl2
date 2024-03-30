@@ -30,9 +30,12 @@ egui_glfw_gl2 is based off [egui_glfw_gl](https://github.com/cohaereo/egui_glfw_
 The project's code heavily references the implementations of [winit](https://github.com/rust-windowing/winit) and [egui_vulkano](https://github.com/derivator/egui_vulkano). Many thanks to them.
 
 ## Update
-### 0.1.0 (2024-3-24)
-- Updated the egui dependency to 0.26.2.
-- Refactored some parts of the code.
+### 0.1.2 (2024-3-31)
+- Significantly refactored the project.
+- Now OpenGL uses version 330, and the method of uploading vertex data has been modified, which theoretically improves rendering performance.
 ### 0.1.1 (2024-3-27)
 - Breaking change: Switched OpenGL binding crate from [gl](https://crates.io/crates/gl) to [gl33](https://crates.io/crates/gl33) (as the function and variable names in gl33 are consistent with C++).
 - Update: Updated the egui dependency to the latest version (0.27.0).
+### 0.1.0 (2024-3-24)
+- Updated the egui dependency to 0.26.2.
+- Refactored some parts of the code.

@@ -1,6 +1,6 @@
 [package]
 name = "egui_glfw_gl2"
-version = "0.1.1"
+version = "0.1.2"
 edition = "2021"
 authors = ["Zenith <zyg19970105@gmail.com>"]
 description = "OpenGL backend for egui using GLFW"
@@ -17,16 +17,7 @@ gl33 = "0.2.1"
 glfw = "0.55.0"
 egui = "0.27.0"
 winapi = "0.3.9"
-
-[dependencies.clipboard]
-package = "cli-clipboard"
-version = "0.4.0"
-optional = true
-
-[dependencies.webbrowser]
-package = "webbrowser"
-version = "0.8.13"
-optional = true
-
-[features]
-default = ["clipboard", "webbrowser"]
+cli-clipboard = "0.4.0"
+webbrowser = "0.8.13"
+cgmath = "0.18.0"
+regex = "1.10.4"
